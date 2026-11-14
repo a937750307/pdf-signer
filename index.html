@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="/css/bulma.css">
+	<title>PDFSigner</title>
+
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			background: #f5f5f5;
+			color: #333;
+			font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+			font-size: 14px;
+		}
+
+		/* 控制面板 */
+		.theinput {
+			position: fixed;
+			z-index: 101;
+			top: 0;
+			left: 0;
+			width: 260px;
+			height: 100vh;
+			padding: 28px 22px;
+			background: #fff;
+			border-right: 1px solid #e5e5e5;
+			overflow-y: auto;
+		}
+
+		.theinput h1 {
+			margin: 0 0 24px;
+			font-size: 18px;
+			font-weight: 600;
+			letter-spacing: 0.5px;
+		}
+
+		.theinput .subtitle {
+			margin: -14px 0 24px;
+			font-size: 12px;
+			color: #999;
+			line-height: 1.6;
+		}
+
+		.theinput .group {
+			margin-bottom: 20px;
+		}
+
+		.theinput .group > label {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 12px;
+			color: #999;
+		}
+
+		/* 文件选择 */
+		.file-picker {
+			display: block;
+			padding: 12px 14px;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			cursor: pointer;
+			transition: border-color 0.2s;
+			font-size: 13px;
+			color: #666;
+		}
+
+		.file-picker:hover {
+			border-color: #999;
+		}
+
+		.file-picker input {
+			display: none;
+		}
+
+		.file-info {
+			margin-top: 6px;
+			font-size: 12px;
+			color: #999;
+			line-height: 1.6;
+		}
+
+		/* 选项 */
+		.options {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+
+		.options label {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			padding: 5px 10px;
+			border: 1px solid #e0e0e0;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			transition: all 0.2s;
+		}
+
+		.options label:hover {
+			border-color: #bbb;
+		}
+
+		.options input {
+			margin: 0;
+		}
+
+		.options input:checked + span {
+			color: #333;
+			font-weight: 500;
+		}
+
+		/* 输入框 */
+		.text-input {
+			width: 100%;
+			padding: 8px 12px;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			font-size: 13px;
+			outline: none;
+			transition: border-color 0.2s;
+		}
+
+		.text-input:focus {
+			border-color: #999;
+		}
+
+		/* 按钮 */
+		.btn {
+			display: inline-block;
+			width: 100%;
+			padding: 10px 0;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			background: #fff;
+			cursor: pointer;
+			font-size: 13px;
+			text-align: center;
+			transition: all 0.2s;
+			text-decoration: none;
+			color: #666;
+		}
+
+		.btn:hover {
+			border-color: #bbb;
+			color: #333;
+		}
+
+		.btn-primary {
+			background: #333;
+			border-color: #333;
+			color: #fff;
+		}
+
+		.btn-primary:hover {
+			background: #555;
+			border-color: #555;
+			color: #fff;
+		}
+
+		.btn-text {
+			border: none;
+			color: #888;
+		}
+
+		.btn-text:hover {
+			color: #333;
+		}
+
+		.link-row {
+			margin-bottom: 6px;
+		}
+
+		/* PDF 预览区 */
+		#print {
+			position: relative;
+			margin: 0 auto;
+			margin-left: 260px;
+			z-index: 1;
+			width: 794px;
+		}
+
+		/* 页面画布设为 block，消除行内元素的基线间距，避免导出多出空白页 */
+		#imgDiv canvas {
+			display: block;
+		}
+
+		/* 签章区 */
+		.signarea {
+			position: absolute;
+			z-index: 100;
+			user-select: none;
+			cursor: move;
+			width: 43mm;
+		}
+
+	/* 签章操作按钮组 */
+	.sign-ops {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 6px;
+	}
+
+	.op-btn {
+		padding: 8px 0;
+		border: 1px solid #e0e0e0;
+		border-radius: 6px;
+		background: #fff;
+		cursor: pointer;
+		font-size: 12px;
+		transition: all 0.2s;
+	}
+
+	.op-btn:hover:not(:disabled) {
+		border-color: #999;
+		background: #fafafa;
+	}
+
+	.op-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+			font-size: 11px;
+			color: #bbb;
+		}
+	</style>
+</head>
+
+<body>
+	<section class="theinput">
+		<h1>PDFSigner</h1>
+		<p class="subtitle">纯前端 PDF 电子签章工具，支持普通签章与骑缝章加盖，在浏览器中完成盖章并导出，无需服务端、数据不上传。</p>
+
+		<div class="group">
+			<label>1. PDF 文件</label>
+			<label class="file-picker" for="pdf">选择文件...</label>
+			<input type="file" id="pdf" style="display:none">
+			<div class="file-info">
+				<span id="pdfName"></span>
+				<span id="pdfSize"></span>
+				<span id="pagesText"></span>
+			</div>
+		</div>
+
+		<div class="group">
+			<label>2. 签章图片</label>
+			<label class="file-picker" for="file_input">选择图片...</label>
+			<input type="file" id="file_input" disabled style="display:none">
+		</div>
+
+		<div class="group">
+			<label>签章操作</label>
+			<p class="hint">点击签章选中后操作</p>
+			<div class="sign-ops">
+				<button class="op-btn" data-op="scale-in" disabled>放大</button>
+				<button class="op-btn" data-op="scale-out" disabled>缩小</button>
+				<button class="op-btn" data-op="rotate" disabled>旋转</button>
+				<button class="op-btn" data-op="opacity" disabled>透明</button>
+				<button class="op-btn" data-op="copy" disabled>复制</button>
+				<button class="op-btn" data-op="del" disabled>删除</button>
+				<button class="op-btn" id="qifeng" style="grid-column: span 2">骑缝章</button>
+			</div>
+		</div>
+
+		<div class="group">
+			<button class="btn" id="reset">重置</button>
+		</div>
+
+		<div class="group" style="display:none">
+			<label>重命名</label>
+			<input class="text-input" id="fileName" type="text" value="">
+		</div>
+
+		<div class="group">
+			<button class="btn btn-primary" id="download">导出 PDF</button>
+		</div>
+	</section>
+
+	<section id="print">
+		<div id="imgDiv">
+		</div>
+		<div class="signarea">
+		</div>
+	</section>
+
+
+	<script type="text/javascript" src="js/jquery.js"></script>
+	<script type="text/javascript" src="js/jq_ui.js"></script>
+	<script type="text/javascript" src="js/FileSaver.js"></script>
+	<script type="text/javascript" src="js/pdf.js"></script>
+	<script type="text/javascript" src="js/html2pdf.js"></script>
+	<script type="text/javascript" src="js/pdf.worker.js"></script>
+	<script>
+		//data 载入缓存和初始化
+
+		let signinput = $("#file_input")
+		let signs = []
+		let signSeq = 0
+
+		let currentSign = null
+
+		// 选中签章
+		function selectSign(sign) {
+			currentSign = sign
+			$('.signarea').removeClass('active')
+			$('#' + sign.id).addClass('active')
+			$('.op-btn').prop('disabled', false)
+		}
+
+		// 渲染单个签章
+		function renderSign(sign) {
+			let style = `left:${sign.left}px;top:${sign.top}px`
+			if (sign.w) style += `;width:${sign.w}px;height:${sign.h}px`
+			let cls = 'signarea' + (sign.qf ? ' qf' : '')
+			let el = $(`<div class="${cls}" id="${sign.id}" style="${style}">
+				<img src="${sign.img}" alt="" />
+			</div>`)
+			el.css('transform', `scale(${sign.scale})`)
+			el.find('img').css({
+				'transform': `rotate(${sign.deg}deg)`,
+				'opacity': sign.opacity
+			})
+			if (sign.w) {
+				el.find('img').css({ 'width': '100%', 'height': '100%' })
+			}
+			el.draggable({
+				stop: function () {
+					let s = signs.find(x => x.id === sign.id)
+					s.left = el.position().left
+					s.top = el.position().top
+				}
+			})
+			// jQuery UI 的 draggable 会把元素强制设为 relative，这里显式改回 absolute，
+			// 保证签章覆盖在 PDF 页面上而不是排在所有页面下方
+			el.css('position', 'absolute')
+			el.on('click', function () {
+				selectSign(sign)
+			})
+			$('#print').append(el)
+		}
+
+		// 骑缝章：支持多组骑缝章并存（按参考章分组），各组在页面内垂直错开排布避免重叠
+		// 移除指定参考章对应的整组骑缝章
+		function removeQifengGroup(key) {
+			let removed = signs.filter(s => s.qf && s.qfKey === key)
+			removed.forEach(s => { let el = $('#' + s.id); if (el.length) el.remove() })
+			signs = signs.filter(s => !(s.qf && s.qfKey === key))
+		}
+
+		// 重新排布所有骑缝章：按组在每页内垂直等距错开，避免互相覆盖
+		function layoutQifeng() {
+			let canvases = $('canvas')
+			if (!canvases.length) return
+			let groups = {}
+			signs.forEach(s => { if (s.qf) (groups[s.qfKey] = groups[s.qfKey] || []).push(s) })
+			let keys = Object.keys(groups)
+			if (!keys.length) return
+
+			let printRect = document.getElementById('print').getBoundingClientRect()
+			for (let i = 0; i < canvases.length; i++) {
+				let cvRect = canvases[i].getBoundingClientRect()
+				let pageH = cvRect.height
+				// 本页各组切片的高度
+				let validKeys = []
+				let validH = []
+				keys.forEach(k => {
+					let slice = groups[k].find(s => s.page === i)
+					if (slice && slice.h > 0) { validKeys.push(k); validH.push(slice.h) }
+				})
+				let n = validKeys.length
+				if (!n) continue
+
+				let totalH = validH.reduce((a, b) => a + b, 0)
+				let gap = totalH <= pageH * 0.75 ? 30 : 10
+				let stackH = totalH + gap * (n - 1)
+				let base = (cvRect.top - printRect.top) + Math.max((pageH - stackH) / 2, 0)
+
+				let cur = base
+				validKeys.forEach((k, g) => {
+					let slice = groups[k].find(s => s.page === i)
+					if (!slice) return
+					slice.left = Math.round(cvRect.width - slice.w)
+					slice.top = Math.round(cur)
+					$('#' + slice.id).css({ left: slice.left, top: slice.top })
+					cur += validH[g] + gap
+				})
+			}
+		}
+
+		// 新增或更新一组骑缝章（按参考章切片，多组并存）
+		function addOrUpdateQifeng(ref) {
+			let canvases = $('canvas')
+			if (!canvases.length) return
+			let n = canvases.length
+			let refEl = $('#' + ref.id)[0]
+			if (!refEl) return
+			// 测量参考章的实际显示尺寸（offsetHeight 不含 transform，需乘以 scale）
+			let refH = refEl.offsetHeight * (ref.scale || 1)
+			let refW = refEl.offsetWidth * (ref.scale || 1)
+			let key = 'qf_' + ref.id
+			removeQifengGroup(key)
+
+			let imgObj = new Image()
+			imgObj.onload = function () {
+				let iw = imgObj.naturalWidth
+				let ih = imgObj.naturalHeight
+				let sliceW = iw / n
+				// 每条切片显示宽度（与参考章同比例）
+				let sliceDispW = refW * sliceW / iw
+				for (let i = 0; i < n; i++) {
+					let c = document.createElement('canvas')
+					c.width = sliceW
+					c.height = ih
+					c.getContext('2d').drawImage(imgObj, i * sliceW, 0, sliceW, ih, 0, 0, sliceW, ih)
+					let sign = {
+						id: 'sign_' + (++signSeq),
+						img: c.toDataURL('image/png'),
+						scale: 1,
+						deg: 0,
+						opacity: ref.opacity != null ? ref.opacity : 1,
+						left: 0,
+						top: 0,
+						w: Math.round(sliceDispW),
+						h: Math.round(refH),
+						qf: true,
+						qfKey: key,
+						page: i
+					}
+					signs.push(sign)
+					renderSign(sign)
+				}
+				layoutQifeng()
+			}
+			imgObj.src = ref.img
+		}
+
+		function qifengSign() {
+			if (!window.pageNum) {
+				alert("请先选择 PDF 文件！")
+				return
+			}
+			let ref = (currentSign && !currentSign.qf && currentSign.img) ? currentSign : signs.find(s => !s.qf && s.img)
+			if (!ref || !ref.img) {
+				alert("请先选择签章图片！")
+				return
+			}
+			addOrUpdateQifeng(ref)
+		}
+
+		$('#qifeng').on('click', qifengSign)
+
+		// 签章操作（放大/缩小/旋转/透明/复制/删除）
+		$('.op-btn').on('click', function () {
+			if (!currentSign) return
+			let op = $(this).data('op')
+			let el = $('#' + currentSign.id)
+			if (op === 'scale-in') {
+				if (currentSign.scale <= 2.5) {
+					currentSign.scale = Math.round((currentSign.scale + 0.1) * 10) / 10
+				} else {
+					currentSign.scale = 1
+				}
+				el.css('transform', `scale(${currentSign.scale})`)
+				if (!currentSign.qf) addOrUpdateQifeng(currentSign)
+			} else if (op === 'scale-out') {
+				if (currentSign.scale >= 0.5) {
+					currentSign.scale = Math.round((currentSign.scale - 0.1) * 10) / 10
+				} else {
+					currentSign.scale = 1
+				}
+				el.css('transform', `scale(${currentSign.scale})`)
+				if (!currentSign.qf) addOrUpdateQifeng(currentSign)
+			} else if (op === 'rotate') {
+				currentSign.deg = currentSign.deg + 15
+				el.find('img').css('transform', `rotate(${currentSign.deg}deg)`)
+			} else if (op === 'opacity') {
+				if (currentSign.opacity >= 0.1) {
+					currentSign.opacity = Math.round((currentSign.opacity - 0.15) * 100) / 100
+				} else {
+					currentSign.opacity = 1
+				}
+				el.find('img').css('opacity', currentSign.opacity)
+			} else if (op === 'copy') {
+				let copy = {
+					id: 'sign_' + (++signSeq),
+					img: currentSign.img,
+					scale: currentSign.scale,
+					deg: currentSign.deg,
+					opacity: currentSign.opacity,
+					left: currentSign.left + 24,
+					top: currentSign.top + 24
+				}
+				signs.push(copy)
+				renderSign(copy)
+				selectSign(copy)
+			} else if (op === 'del') {
+				el.remove()
+				let idx = signs.findIndex(x => x.id === currentSign.id)
+				if (idx > -1) signs.splice(idx, 1)
+				// 若删除的是普通章，连带清除它对应的骑缝章组
+				if (!currentSign.qf) removeQifengGroup('qf_' + currentSign.id)
+				currentSign = null
+				$('.signarea').removeClass('active')
+				$('.op-btn').prop('disabled', true)
+				layoutQifeng()
+			}
+		})
+
+		//公章相关：载入
+		signinput.change(function () {
+			let file = this.files[0]
+			if (!/image\/\w+/.test(file.type)) {
+				alert("文件必须为图片！")
+				return false
+			}
+			let reader = new FileReader()
+			reader.readAsDataURL(file)
+			reader.onload = function () {
+				let sign = {
+					id: 'sign_' + (++signSeq),
+					img: this.result,
+					scale: 1,
+					deg: 0,
+					opacity: 1,
+					left: 300,
+					top: 20
+				}
+				signs.push(sign)
+				renderSign(sign)
+				selectSign(sign)
+			}
+		})
+		
+		//时间
+		function zeroFill(i) {
+			if (i >= 0 && i <= 9) {
+				return "0" + i
+			}
+			return i
+		}
+		function getCurrentTime() {
+			let date = new Date()
+			return date.getFullYear() + zeroFill(date.getMonth() + 1) + zeroFill(date.getDate()) +
+				zeroFill(date.getHours()) + zeroFill(date.getMinutes())
+		}
+
+		$('#pdf').change(function () {
+			$('input#file_input').removeAttr("disabled")
+			let files = $('#pdf').prop('files')
+			if (!files[0]) return
+
+			$("#imgDiv").empty()
+
+			let fileSize = files[0].size
+			let mb = fileSize / 1048576
+			if (mb > 50) {
+				alert("文件大小不能>50M")
+				return
+			}
+
+			$("#download").show()
+			$("#fileName").parent().show()
+			$("#pdfName").text(`文件名：${files[0].name}`).attr("title", files[0].name)
+			$("#pdfSize").text(`（${mb.toFixed(2)}Mb）`)
+			let baseName = files[0].name.replace(/\.[^.]+$/, "")
+			$("#fileName").val(`${baseName}${getCurrentTime()}.pdf`)
+
+			/*pdf.js无法直接打开本地文件,所以利用FileReader转换*/
+			let reader = new FileReader()
+			reader.readAsArrayBuffer(files[0])
+			reader.onload = function (e) {
+				let typedarray = new Uint8Array(e.target.result)
+				PDFJS.cMapUrl = 'https://unpkg.com/browse/pdfjs-dist@2.14.305/cmaps/'
+				PDFJS.cMapPacked = true
+				PDFJS.getDocument(typedarray).then(function (pdf) { //PDF转换为canvas
+					$("#imgDiv").css("border", "0") //清除文本、边框
+					if (pdf) {
+						window.pageNum = pdf.numPages
+						$("#pagesText").text(`共 ${pageNum} 页`)
+						for (let i = 1; i <= pageNum; i++) {
+							let canvas = document.createElement('canvas')
+							canvas.id = "pageNum" + i
+							$("#imgDiv").append(canvas)
+							let context = canvas.getContext('2d')
+							openPage(pdf, i, context)
+						}
+					}
+				})
+			}
+		})
+
+		function openPage(pdfFile, pageNumber, context) {
+			let scale = 2
+			pdfFile.getPage(pageNumber).then(function (page) {
+				let viewport = page.getViewport(scale) // reference canvas via context
+				let canvas = context.canvas
+				canvas.width = viewport.width
+				canvas.height = viewport.height
+				// 记录当前canvas的width，height
+				window.wi = canvas.width
+				window.he = canvas.height
+				canvas.style.width = "100%"
+				canvas.style.height = "100%"
+				let renderContext = {
+					canvasContext: context,
+					viewport: viewport
+				}
+				page.render(renderContext)
+			})
+		}
+
+		// 导出 PDF
+		$('#download').on('click', function () {
+			$('.signarea.active').removeClass('active')
+			let fname = $('#fileName').val()
+			let canvas1 = $('canvas')
+			let tHeight = canvas1[0].offsetHeight
+			let tWidth = canvas1[0].offsetWidth
+			let invoice = document.getElementById("print")
+
+			// #print 因左侧固定操作栏带有 margin-left，html2canvas 会把这个偏移
+			// 一并截进画布，导致导出的 PDF 左侧出现空白。导出时临时归零，完成后还原。
+			let oldMargin = invoice.style.marginLeft
+			invoice.style.marginLeft = '0px'
+
+			let opt = {
+				filename: fname,
+				image: { type: 'jpeg', quality: 1 },
+				html2canvas: { scale: 2 },
+				jsPDF: { unit: 'px', format: [tWidth, tHeight], orientation: 'portrait' }
+			}
+			html2pdf().from(invoice).set(opt).save().then(function () {
+				invoice.style.marginLeft = oldMargin
+			}).catch(function () {
+				invoice.style.marginLeft = oldMargin
+			})
+		})
+
+		//重置
+		$('#reset').click(function () {
+			location.reload()
+		})
+
+	</script>
+    <style>
+      .beian-bar{width:100%;background:transparent;padding:12px 0;text-align:center;font-size:14px;line-height:1.6;border-top:1px solid transparent}
+      .beian-pc{display:flex;justify-content:center;align-items:center;gap:20px}
+      .beian-disclaimer{color:#e74c3c;white-space:nowrap}
+      .beian-icp{color:#333;text-decoration:none;white-space:nowrap}
+      .beian-gongan{display:inline-flex;align-items:center;gap:6px;color:#333;text-decoration:none;white-space:nowrap}
+      .beian-gongan img{width:16px;height:16px}
+      @media(max-width:768px){.beian-pc{display:none}.beian-mobile{display:flex;flex-direction:column;align-items:center;gap:6px}.beian-mobile a,.beian-mobile span{display:block;line-height:1.8}}
+      @media(min-width:769px){.beian-mobile{display:none}}
+    </style>
+    <div class="beian-bar">
+      <div class="beian-pc">
+        <span class="beian-disclaimer">本站内容仅供学习和交流，非商业用途</span>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="beian-icp">浙ICP备2025187466号</a>
+        <a href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=33030402001483" target="_blank" rel="noopener noreferrer" class="beian-gongan">
+          <img src="https://www.937788.xyz/gonganbeian.png" alt="公安备案" onerror="this.style.display='none'">
+          浙公网安备33030402001483号
+        </a>
+      </div>
+      <div class="beian-mobile">
+        <span class="beian-disclaimer">本站内容仅供学习和交流，非商业用途</span>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="beian-icp">浙ICP备2025187466号</a>
+        <a href="https://www.beian.gov.cn/portal/registerSystemInfo?recordcode=33030402001483" target="_blank" rel="noopener noreferrer" class="beian-gongan">
+          <img src="https://www.937788.xyz/gonganbeian.png" alt="公安备案" onerror="this.style.display='none'">
+          浙公网安备33030402001483号
+        </a>
+      </div>
+    </div>
+</body>
+
+</html>
